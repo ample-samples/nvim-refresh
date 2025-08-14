@@ -126,6 +126,8 @@ vim.o.showmode = false
 -- Enable break indent
 vim.o.breakindent = true
 
+vim.o.shellcmdflag = '-c'
+
 -- Save undo history
 vim.o.undofile = true
 
@@ -141,6 +143,9 @@ vim.o.updatetime = 250
 
 -- Decrease mapped sequence wait time
 vim.o.timeoutlen = 300
+
+vim.o.shell = '"C:\\Program Files\\Git\\bin\\bash"'
+vim.o.shellcmdflag = '-s'
 
 -- Configure how new splits should be opened
 vim.o.splitright = true
@@ -178,6 +183,9 @@ vim.o.confirm = true
 --  See `:help hlsearch`
 vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>')
 
+-- Unfocus from termial
+vim.keymap.set('t', '<Esc>', '<C-\\><C-n>', { desc = 'Unfocus from terminal' })
+
 -- Diagnostic keymaps
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
 
@@ -185,7 +193,7 @@ vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagn
 vim.keymap.set('n', '<leader>h', ':Alpha<CR>', { desc = 'Open Alpha [h]omepage' })
 
 -- Nvim Tree
-vim.keymap.set('n', '<leader>t', ':NvimTreeFocus<CR>', { desc = 'Open Nvim [T]ree' })
+vim.keymap.set('n', '<leader>t', ':NvimTreeFindFile<CR>', { desc = 'Open Nvim [T]ree' })
 vim.keymap.set('n', '<leader>T', ':NvimTreeClose<CR>', { desc = 'Close Nvim [T]ree' })
 --
 -- Exit terminal mode in the builtin terminal with a shortcut that is a bit easier
@@ -211,6 +219,11 @@ vim.keymap.set('n', '<C-l>', '<C-w><C-l>', { desc = 'Move focus to the right win
 vim.keymap.set('n', '<C-j>', '<C-w><C-j>', { desc = 'Move focus to the lower window' })
 vim.keymap.set('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper window' })
 
+-- Bufferline/buffer mappings
+vim.keymap.set({ 'n', 'v' }, '<C-l>', ':bnext<CR>')
+vim.keymap.set({ 'n', 'v' }, '<C-h>', ':bprev<CR>')
+vim.keymap.set({ 'n', 'v' }, '<C-x>', ':bd<CR>')
+
 -- NOTE: Some terminals have colliding keymaps or are not able to send distinct keycodes
 -- vim.keymap.set("n", "<C-S-h>", "<C-w>H", { desc = "Move window to the left" })
 -- vim.keymap.set("n", "<C-S-l>", "<C-w>L", { desc = "Move window to the right" })
@@ -231,6 +244,37 @@ vim.api.nvim_create_autocmd('TextYankPost', {
   end,
 })
 
+-- Put anything you want to happen only in Neovide here
+if vim.g.neovide then
+  vim.g.neovide_refresh_rate = 165
+  vim.g.neovide_scroll_animation_length = 0.04
+  vim.g.neovide_cursor_animation_length = 0.0
+  vim.g.neovide_cursor_vfx_mode = ''
+  vim.g.neovide_cursor_vfx_particle_density = 0.0
+  vim.o.guifont = 'MonoLisa:style=Regular:scale=1' -- text below applies for VimScript
+
+  -- Neovide cliboard
+  vim.keymap.set({ 'n', 'v', 's', 'x', 'o', 'i', 'l', 'c', 't' }, '<C-S-v>', function()
+    vim.api.nvim_paste(vim.fn.getreg '+', true, -1)
+  end, { noremap = true, silent = true })
+
+  vim.keymap.set({ 'v', 's', 'x', 'o', 'l', 'c', 't' }, '<C-S-c>', '"+y', { noremap = true, silent = true })
+end
+
+-- asyncrun
+vim.g.asyncrun_open = 6
+vim.keymap.set({ 'i', 'n', 'v' }, '<F3>', ':AsyncTask run<CR>', { desc = 'Run or run-and-build file or project' })
+-- asyncstop
+vim.keymap.set({ 'i', 'n', 'v' }, '<F4>', ':AsyncStop<CR>', { desc = 'Stop any asynctasks' })
+
+-- jop-reset
+vim.keymap.set({ 'i', 'n', 'v' }, '<F5>', ':AsyncTask jop-reset<CR>', { desc = 'Reset JOP sim' })
+
+vim.cmd [[
+" Auto-change directory to that of the currently opened file
+autocmd BufEnter * silent! lcd %:p:h
+]]
+
 -- [[ Install `lazy.nvim` plugin manager ]]
 --    See `:help lazy.nvim.txt` or https://github.com/folke/lazy.nvim for more info
 local lazypath = vim.fn.stdpath 'data' .. '/lazy/lazy.nvim'
@@ -245,6 +289,10 @@ end
 ---@type vim.Option
 local rtp = vim.opt.rtp
 rtp:prepend(lazypath)
+-- add npm to path
+-- vim.opt.path:append '"C:\\Program\\ Files\\nodejs\\node_modules"'
+
+vim.cmd [[set path+='"C:\\Program\ Files\\nodejs"']]
 
 -- [[ Configure and install plugins ]]
 --
@@ -685,7 +733,6 @@ require('lazy').setup({
       local servers = {
         -- clangd = {},
         -- gopls = {},
-        -- pyright = {},
         -- rust_analyzer = {},
         -- ... etc. See `:help lspconfig-all` for a list of all the pre-configured LSPs
         --
@@ -732,6 +779,7 @@ require('lazy').setup({
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
       require('mason-lspconfig').setup {
+        automatic_enable = true,
         ensure_installed = {}, -- explicitly set to an empty table (Kickstart populates installs via mason-tool-installer)
         automatic_installation = false,
         handlers = {
@@ -815,12 +863,12 @@ require('lazy').setup({
           -- `friendly-snippets` contains a variety of premade snippets.
           --    See the README about individual language/framework/plugin snippets:
           --    https://github.com/rafamadriz/friendly-snippets
-          -- {
-          --   'rafamadriz/friendly-snippets',
-          --   config = function()
-          --     require('luasnip.loaders.from_vscode').lazy_load()
-          --   end,
-          -- },
+          {
+            'rafamadriz/friendly-snippets',
+            config = function()
+              require('luasnip.loaders.from_vscode').lazy_load()
+            end,
+          },
         },
       },
       'folke/lazydev.nvim',
@@ -963,6 +1011,16 @@ require('lazy').setup({
       --  Check out: https://github.com/echasnovski/mini.nvim
     end,
   },
+  { -- Add, remove and modify surround characters
+    "kylechui/nvim-surround",
+    version = "^3.0.0", -- Use for stability; omit to use `main` branch for the latest features
+    event = "VeryLazy",
+    config = function()
+        require("nvim-surround").setup({
+            -- Configuration here, or leave empty to use defaults
+        })
+    end
+  },
   { -- Highlight, edit, and navigate code
     'nvim-treesitter/nvim-treesitter',
     build = ':TSUpdate',
@@ -1052,7 +1110,61 @@ require('lazy').setup({
     'smolck/command-completion.nvim',
     config = function()
       require('command-completion').setup {
-        tab_completion = false
+        tab_completion = false,
+      }
+    end,
+  },
+  {
+    'akinsho/bufferline.nvim',
+    version = '*',
+    dependencies = 'nvim-tree/nvim-web-devicons',
+    config = function()
+      require('bufferline').setup()
+    end,
+  },
+  {
+    'rachartier/tiny-inline-diagnostic.nvim',
+    event = 'VeryLazy', -- Or `LspAttach`
+    priority = 1000, -- needs to be loaded in first
+    config = function()
+      require('tiny-inline-diagnostic').setup {
+        preset = 'modern',
+        options = {
+          multilines = {
+            enabled = true,
+            always_show = true,
+          },
+          add_messages = false,
+        },
+      }
+      vim.diagnostic.config { virtual_text = false, signs = false } -- Only if needed in your configuration, if you already have native LSP diagnostics
+    end,
+  },
+  {
+    'skywind3000/asyncrun.vim',
+  },
+  {
+    'skywind3000/asynctasks.vim',
+  },
+  {
+    'nvim-telescope/telescope-file-browser.nvim',
+    dependencies = { 'nvim-telescope/telescope.nvim', 'nvim-lua/plenary.nvim' },
+    config = function()
+      require('telescope').setup {
+        vim.keymap.set('n', '<space>fb', function()
+          require('telescope').extensions.file_browser.file_browser()
+        end),
+      }
+    end,
+  },
+  {
+    'VonHeikemen/fine-cmdline.nvim',
+    dependencies = {
+      { 'MunifTanjim/nui.nvim' },
+    },
+    config = function()
+      require('fine-cmdline').setup {
+        vim.api.nvim_set_keymap('n', '<C-p>', '<cmd>FineCmdline<CR>', { noremap = true }),
       }
     end,
   },
@@ -1074,6 +1186,13 @@ require('lazy').setup({
       start = '🚀',
       task = '📌',
       lazy = '💤 ',
+    },
+  },
+})
+vim.lsp.config('pyright', {
+  settings = {
+    python = {
+      pythonPath = "C:\\Games\\JOY OF PROGRAMMING\\JoyOfProgramming\\Content\\000_MyContent\\External\\python-3.10.4-embed-amd64\\python.exe",
     },
   },
 })
